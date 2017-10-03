@@ -1,6 +1,6 @@
 ![BSP2OBJ](logo.png)
 
-BSP2OBJ is a Python module and command-line utility that is capable of converting BSP map files into OBJ/MTL files (with accompanying PNG textures). It comes with support for GoldSRC-era BSP files (Quake), as well as IBSP (Quake 2) and early versions of VBSP (Half-Life).
+BSP2OBJ is a Python module and command-line utility that is capable of converting BSP map files into OBJ/MTL files (with accompanying PNG textures). It comes with support for Quake, Quake 2 and Half-Life maps.
 
 ## Installation
 
