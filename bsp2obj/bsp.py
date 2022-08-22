@@ -250,7 +250,7 @@ class BSP(object):
                 outputFile.write("vt " + str(uv[0]) + " " + str(uv[1]) + "\n")
 
             numFaces = len(faceIndices)
-            for name, group in textureGroups.iteritems():
+            for name, group in textureGroups.items():
                 outputFile.write("\no mesh_" + name + "\n")
                 outputFile.write("\nusemtl " + name + "\n")
 
@@ -271,7 +271,7 @@ class BSP(object):
 
         # Generate the MTL file to go alongside our OBJ
         with open(outputPath + ".mtl", "w") as mtlFile:
-            for name, group in textureGroups.iteritems():
+            for name, group in textureGroups.items():
                 mtlFile.write("\nnewmtl " + name + "\n")
                 mtlFile.write("Ka 1.000 1.000 1.000\n")
                 mtlFile.write("Kd 1.000 1.000 1.000\n")
@@ -403,6 +403,7 @@ class BSP(object):
         # Parse texture header
         name, width, height, offset1, offset2, offset4, offset8 = struct.unpack(byteFormat, stream.read(byteLength))
         name = c_char_p(name).value # null-terminate string
+        name = bytesToString(name)
 
         # TODO: Apparently in Half-Life 1 the mip texture offsets can be 0
         # to denote that this texture should be loaded from an external WAD

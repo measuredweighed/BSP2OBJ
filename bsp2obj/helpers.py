@@ -1,5 +1,11 @@
 import math, struct
 
+""" Converts a byte string representation to a string type (where appropriate) """
+def bytesToString(bytes, encoding="ascii"):
+    if type(bytes) == type(b""):
+        bytes = bytes.decode(encoding)
+    return bytes
+
 """ A barebones class to help with seeking and fetching from a binary source """
 class BinaryStream(object):
     ptr = 0
