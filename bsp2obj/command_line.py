@@ -35,10 +35,14 @@ def main():
                 stream = BinaryStream(f)
 
                 pak = PAK(stream)
-                stream.seek(pak.directory[bspPath][0])
 
-                bsp = BSP(stream, pak, palettePath)
-                bsp.saveOBJ(outputPath)
+                if bspPath in pak.directory:
+                    stream.seek(pak.directory[bspPath][0])
+
+                    bsp = BSP(stream, pak, palettePath)
+                    bsp.saveOBJ(outputPath)
+                else:
+                    raise KeyError("Unable to find `%s` in provided PAK file" %(bspPath))
 
         # If we've been passed a BSP path, but not a PAK path, we can assume
         # we're loading the likes of a Half-Life BSP where resource files
