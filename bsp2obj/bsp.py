@@ -2,6 +2,7 @@ import os, io, struct, math
 
 from bsp2obj.helpers import *
 from bsp2obj.pak import *
+from bsp2obj.image import *
 
 from enum import Enum
 from PIL import Image
@@ -26,21 +27,6 @@ class TextureInfo(object):
         self.vOffset = vOffset
         self.texID = texID
         self.animated = animated
-
-class Palette(object):
-    @staticmethod
-    def fromPCX(data):
-        stream = io.BytesIO(data)
-        img = Image.open(stream).convert("RGB")
-        return list(img.getdata())
-
-    @staticmethod
-    def fromLMP(data):
-        pixels = []
-        for i in range(0, len(data), 3):
-            r, g, b = struct.unpack('BBB', data[i+0:i+3])
-            pixels.append((r, g, b))
-        return pixels
 
 class Texture(object):
     def __init__(self, pixels, width, height, name=None):
@@ -151,9 +137,9 @@ class BSP(object):
             self.stream.seek(ptr)
 
             if path.endswith(".lmp"):
-                return Palette.fromLMP(data)
+                return ImageLoader.fromLMP(data)
             else:
-                return Palette.fromPCX(data)
+                return ImageLoader.fromPCX(data)
         else:
             with open(path, "rb") as f:
                 stream = BinaryStream(f)
@@ -162,9 +148,9 @@ class BSP(object):
                 self.stream.seek(ptr)
 
                 if path.endswith(".lmp"):
-                    return Palette.fromLMP(data)
+                    return ImageLoader.fromLMP(data)
                 else:
-                    return Palette.fromPCX(data)
+                    return ImageLoader.fromPCX(data)
 
         return None
 
