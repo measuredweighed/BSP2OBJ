@@ -141,9 +141,10 @@ class BSP(object):
         ptr = self.stream.ptr
 
         if self.pak is not None:
+            if path not in self.pak.directory:
+                raise KeyError("Unable to find palette file `%s` in PAK file"%(path))
+
             offset, size = self.pak.directory[path]
-            if offset == None:
-                raise ValueError("Unable to find palette file in PAK with path: " + path)
 
             self.stream.seek(offset)
             data = self.stream.read(size)
