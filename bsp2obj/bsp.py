@@ -89,7 +89,7 @@ class BSP(object):
         numLumps = 0
 
         identStr, = struct.unpack("4s", self.stream.read(4))
-        if identStr == "IBSP":
+        if bytesToString(identStr) == "IBSP":
             self.format = BSPFormat.IBSP
             numLumps = 19
         else:
@@ -344,8 +344,6 @@ class BSP(object):
         if self.format is BSPFormat.IBSP:
             length = 76
 
-        print(length)
-
         texInfos = []
         for i in range(0, size//length):
             name = None
@@ -357,6 +355,7 @@ class BSP(object):
             if self.format is BSPFormat.IBSP:
                 data = struct.unpack("ffffffffII32sI", self.stream.read(length))
                 name = c_char_p(data[10]).value
+                name = bytesToString(name)
             else:
                 data = struct.unpack("ffffffffII", self.stream.read(length))
 
