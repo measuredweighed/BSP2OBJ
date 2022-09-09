@@ -5,12 +5,13 @@ import os, getopt, sys, traceback
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "o:p:m:c:")
+        opts, args = getopt.getopt(sys.argv[1:], "o:p:m:c:d:")
 
         pakPath = None
         palettePath = None
         bspPath = None
         outputPath = "output"
+        pakDumpPattern = None
 
         for opt, arg in opts:
             if opt in "-p":
@@ -21,6 +22,8 @@ def main():
                 palettePath = arg
             elif opt in "-o":
                 outputPath = arg
+            elif opt in "-d":
+                pakDumpPattern = arg
 
         if bspPath is None:
             raise ValueError("Failed to provide a BSP filepath")
@@ -35,6 +38,9 @@ def main():
                 stream = BinaryStream(f)
 
                 pak = PAK(stream)
+
+                if pakDumpPattern is not None:
+                    pak.dumpContents(pakDumpPattern)
 
                 if bspPath in pak.directory:
                     stream.seek(pak.directory[bspPath][0])

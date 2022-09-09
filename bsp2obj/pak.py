@@ -1,5 +1,6 @@
 import struct
 
+import re
 from ctypes import *
 from bsp2obj.helpers import *
 
@@ -25,3 +26,10 @@ class PAK(object):
             filename = bytesToString(filename)
 
             self.directory[filename] = (offset, size)
+
+    def dumpContents(self, pattern):
+        print("Dumping PAK contents matching `%s`"%(pattern))
+        for filename in self.directory:
+            if pattern is "*" or re.search(pattern, filename):
+                print(filename)
+
