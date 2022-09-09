@@ -41,6 +41,7 @@ def main():
 
                 if pakDumpPattern is not None:
                     pak.dumpContents(pakDumpPattern)
+                    os._exit(1)
 
                 if bspPath in pak.directory:
                     stream.seek(pak.directory[bspPath][0])
