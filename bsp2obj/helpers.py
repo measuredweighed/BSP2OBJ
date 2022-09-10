@@ -13,8 +13,7 @@ class BinaryStream(object):
 
     def __init__(self, binaryFile, ptr=0):
         self.binaryFile = binaryFile
-        self.ptr = ptr
-        self.binaryFile.seek(ptr)
+        self.seek(ptr)
 
     def seek(self, ptr):
         self.binaryFile.seek(ptr)
@@ -29,6 +28,13 @@ class BinaryStream(object):
     def read(self, length):
         value = self.binaryFile.read(length)
         self.advance(length)
+        return value
+
+    def fetch(self, offset, length):
+        prevOffset = self.ptr
+        self.seek(offset)
+        value = self.read(length)
+        self.seek(prevOffset)
         return value
 
     def int(self, length):

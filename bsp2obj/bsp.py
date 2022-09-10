@@ -3,8 +3,8 @@ import os, io, struct, math
 from bsp2obj.helpers import *
 from bsp2obj.pak import *
 from bsp2obj.image import *
+from bsp2obj.constants import * 
 
-from enum import Enum
 from PIL import Image
 
 class Edge(object):
@@ -28,40 +28,11 @@ class TextureInfo(object):
         self.texID = texID
         self.animated = animated
 
-class Texture(object):
-    def __init__(self, pixels, width, height, name=None):
-        self.pixels = pixels 
-        self.width = width 
-        self.height = height
-        self.name = name
-
-    def save(self, path):
-        # Because texture names (and by extension the paths we write to)
-        # can contain directories, i.e: 'e1u1/flat1_1' in the case of Quake 2,
-        # we need to make sure the directories in the path are recursively created before writing
-        folderPath = os.path.dirname(path)
-        if len(folderPath) > 0:
-            if not os.path.exists(folderPath):
-                os.makedirs(folderPath)
-
-        img = Image.new("RGB", (self.width, self.height))
-        img.putdata(self.pixels)
-        img.save(path)
-
-    def saveToAtlas(self, atlas, position):
-        img = Image.new("RGB", (self.width, self.height))
-        img.paste(atlas, position)
-
 class TextureGroup(object):
     def __init__(self, vertexIndices, uvIndices, normalIndices):
         self.vertexIndices = vertexIndices
         self.uvIndices = uvIndices
         self.normalIndices = normalIndices
-
-class BSPFormat(Enum):
-    GSRC = 1 # Quake
-    IBSP = 2 # Quake 2 (also used for Quake 3, but that's unsupported right now)
-    HL = 3 # Half-Life
 
 class BSP(object):
     def __init__(self, stream, pak, palettePath):
@@ -85,13 +56,14 @@ class BSP(object):
             numLumps = 15
 
         version, = struct.unpack("I", self.stream.read(4))
-        print("BSP version " + str(version))
 
         # Version 30 of the old GoldSrc format is Half-Life (AKA: HL)
         if self.format is BSPFormat.GSRC and version is 30:
             self.format = BSPFormat.HL
 
-        self.palette = self.loadGlobalPalette(palettePath)
+        self.palette = TextureLoader.loadFromPath(palettePath, pak)
+        if self.palette is None:
+            raise KeyError("Unable to find palette file `%s` in PAK file"%(palettePath))
 
         # Parse this BSPs lumps
         lumps = []
@@ -117,42 +89,19 @@ class BSP(object):
             self.textures = {}
             for texInfo in self.texInfos:
                 if texInfo.name not in self.textures:
-                    path = "textures/" + texInfo.name + ".wal"
+                    for extension in ["wal", "tga"]:
+                        path = "textures/" + texInfo.name + "." + extension
 
-                    if (self.pak is not None) and (path in self.pak.directory):
-                        offset = self.pak.directory[path][0]
-                        self.textures[texInfo.name] = self.parseTexture(BinaryStream(self.stream.binaryFile, offset))
+                        if (self.pak is not None) and (path in self.pak.directory):
 
-    def loadGlobalPalette(self, path):
-        ptr = self.stream.ptr
+                            offset = self.pak.directory[path][0]
+                            size = self.pak.directory[path][1]
+                            stream = BinaryStream(self.stream.binaryFile, offset)
 
-        if self.pak is not None:
-            if path not in self.pak.directory:
-                raise KeyError("Unable to find palette file `%s` in PAK file"%(path))
-
-            offset, size = self.pak.directory[path]
-
-            self.stream.seek(offset)
-            data = self.stream.read(size)
-            self.stream.seek(ptr)
-
-            if path.endswith(".lmp"):
-                return ImageLoader.fromLMP(data)
-            else:
-                return ImageLoader.fromPCX(data)
-        else:
-            with open(path, "rb") as f:
-                stream = BinaryStream(f)
-                size = os.fstat(f.fileno()).st_size
-                data = self.stream.read(size)
-                self.stream.seek(ptr)
-
-                if path.endswith(".lmp"):
-                    return ImageLoader.fromLMP(data)
-                else:
-                    return ImageLoader.fromPCX(data)
-
-        return None
+                            if extension == "wal":
+                                self.textures[texInfo.name] = TextureLoader.loadWAL(self.format, stream, self.palette)
+                            else:
+                                self.textures[texInfo.name] = TextureLoader.loadFromPath(path, pak)
 
     def saveOBJ(self, outputFileName):
         faceIndices = []
@@ -279,6 +228,8 @@ class BSP(object):
             for texture in textureList:
                 texture.save(outputFileName + "/" + texture.name + ".png")
 
+        print("OBJ saved to `%s`"%(outputFileName))
+
     def parseVertices(self, offset, size):
         self.stream.seek(offset)
 
@@ -357,7 +308,7 @@ class BSP(object):
         return texInfos
 
     def parseTextures(self, offset):
-        if self.palette == None:
+        if self.palette is None:
             raise ValueError("Attempt to parse a texture without an associated palette")
 
         self.stream.seek(offset)
@@ -372,50 +323,6 @@ class BSP(object):
         textures = []
         for i in range(0, numTextures):
             textureStream = BinaryStream(self.stream.binaryFile, offset + offsets[i])
-            textures.append(self.parseTexture(textureStream))
+            textures.append(TextureLoader.loadWAL(self.format, textureStream, self.palette))
 
         return textures
-
-    def parseTexture(self, stream):
-        baseOffset = stream.ptr
-
-        if self.format is BSPFormat.IBSP:
-            byteFormat = "32sIIIIII"
-            byteLength = 56
-        else:
-            byteLength = 40
-            byteFormat = "16sIIIIII"
-
-        # Parse texture header
-        name, width, height, offset1, offset2, offset4, offset8 = struct.unpack(byteFormat, stream.read(byteLength))
-        name = c_char_p(name).value # null-terminate string
-        name = bytesToString(name)
-
-        # TODO: Apparently in Half-Life 1 the mip texture offsets can be 0
-        # to denote that this texture should be loaded from an external WAD
-        # file, but I've yet to come across this
-
-        # Half-Life 1 stored custom palette information for each mip texture,
-        # so we seek past the last mip texture (and past the 256 2-byte denominator)
-        # to grab the RGB values for this texture
-        if self.format is BSPFormat.HL:
-            customPalette = []
-            stream.seek(baseOffset + offset8 + ((width//8) * (height//8)) + 2)
-            for p in range(0, 256):
-                customPalette.append(struct.unpack("BBB", stream.read(3)))
-
-        # Skip to the correct byte offset for mip level 1
-        stream.seek(baseOffset + offset1)
-
-        # Grab the raw pixel data
-        numPixels = width * height
-        pixels = []
-        for p in range(0, numPixels):
-            index, = struct.unpack("B", stream.read(1))
-            if self.format is not BSPFormat.HL:
-                pixels.append(self.palette[index])
-            else:
-                pixels.append(customPalette[index])
-
-        print("Parsed " + str(name))
-        return Texture(pixels, width, height, name)
