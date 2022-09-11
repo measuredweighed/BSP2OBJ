@@ -1,4 +1,4 @@
-import struct, re, os, sys
+import struct, re, os, sys, io
 
 from ctypes import *
 from bsp2obj.helpers import *
@@ -8,15 +8,29 @@ class PAKCollection(object):
         self.list = []
 
         for path in paths:
-            try:
-                path = os.path.join(sys.path[0], path)
-                f = open(path, "rb")
-                stream = BinaryStream(f)
-
-                pak = PAK(stream)
+            path = os.path.join(sys.path[0], path)
+            with open(path, "rb") as f:
+                data = io.BytesIO(f.read())
+                pak = PAK(data)
                 self.list.append(pak)
+
+    # Look for the given object in our PAK collection and,
+    # failing that lookup, check the filesystem
+    def dataForEntry(self, name):
+        pak, entry = self.entryForName(name)
+        if pak is not None:
+            offset, size = entry
+            pak.data.seek(offset)
+            data = pak.data.read(size)
+            return io.BytesIO(data)
+        else:
+            try:
+                with open(name, "rb") as f:
+                    return io.BytesIO(f.read())
             except:
-                raise ValueError("Failed to load PAK with path `%s`"%(path))
+                return None
+
+        return None
 
     def dumpContents(self, pattern):
         for pak in self.list:
@@ -29,28 +43,26 @@ class PAKCollection(object):
 
         return None, None
 
-    def closeAll(self):
-        for pak in self.list:
-            pak.close()
-
 class PAK(object):
-    def __init__(self, stream):
-        self.stream = stream
+    def __init__(self, data):
+        self.data = data
 
-        header, = struct.unpack("4s", stream.read(4))
+        header, = struct.unpack("4s", data.read(4))
         header = bytesToString(header)
 
         if(header != "PACK"):
             raise ValueError("Expected PACK header, found " + header)
             
         # Get the offset and size of the PAK directory list
-        offset, size = struct.unpack('ii', stream.read(8))
-        stream.seek(offset)
+        offset, size = struct.unpack('ii', data.read(8))
+        data.seek(offset)
 
-        FILE_INDEX_SIZE_BYTES = 64
+        structure = "56sii" #56siiii" 
+
+        FILE_INDEX_SIZE_BYTES = 64 #72
         self.directory = {}
         for i in range(0, size // FILE_INDEX_SIZE_BYTES):
-            filename, offset, size = struct.unpack("56sii", stream.read(FILE_INDEX_SIZE_BYTES))
+            filename, offset, size = struct.unpack(structure, data.read(FILE_INDEX_SIZE_BYTES))
             filename = c_char_p(filename).value # null-terminate string
             filename = bytesToString(filename)
 
@@ -61,7 +73,4 @@ class PAK(object):
         for filename in self.directory:
             if pattern is "*" or re.search(pattern, filename):
                 print(filename)
-
-    def close(self):
-        self.stream.close()
 

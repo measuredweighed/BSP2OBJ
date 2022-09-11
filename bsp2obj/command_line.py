@@ -38,30 +38,14 @@ def main():
         if palettePath is None:
             raise ValueError("Failed to provide a palette filepath")
 
-        if len(paks.list) > 0:
-
-            pak, bspEntry = paks.entryForName(bspPath)
-            if bspEntry is not None:
-                pak.stream.seek(bspEntry[0])
-
-                bsp = BSP(pak.stream, paks, palettePath)
-                bsp.saveOBJ(outputPath)
-            else:
-                raise KeyError("Unable to find `%s` in provided PAK file" %(bspPath))
-
-        # If we've been passed a BSP path, but not a PAK path, we can assume
-        # we're loading the likes of a Half-Life BSP where resource files
-        # should instead be looked up via the filesystem (rather than being
-        # tightly coupled with an associated PAK file)
+        # Check all of our PAK files for the given BSP path 
+        # If we can't find it there, try the filesystem before giving up
+        data = paks.dataForEntry(bspPath)
+        if data is not None:
+            bsp = BSP(data, paks, palettePath)
+            bsp.saveOBJ(outputPath)
         else:
-
-            with open(bspPath, "rb") as f:
-                stream = BinaryStream(f)
-
-                bsp = BSP(stream, paks, palettePath)
-                bsp.saveOBJ(outputPath)        
-
-        paks.closeAll()
+            raise KeyError("Unable to find `%s` in provided PAK file(s) or filesystem" %(bspPath))
 
     except getopt.GetoptError:
         print("Invalid opt usage")

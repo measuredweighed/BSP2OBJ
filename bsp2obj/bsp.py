@@ -35,27 +35,26 @@ class TextureGroup(object):
         self.normalIndices = normalIndices
 
 class BSP(object):
-    def __init__(self, stream, paks, palettePath):
-        self.stream = stream
+    def __init__(self, data, paks, palettePath):
+        self.data = data
         self.paks = paks
         self.format = BSPFormat.GSRC
 
-        # Store a base byte offset to the start of the BSP file
-        offset = stream.ptr
-
         numLumps = 0
 
-        identStr, = struct.unpack("4s", self.stream.read(4))
+        identStr, = struct.unpack("4s", data.read(4))
         if bytesToString(identStr) == "IBSP":
             self.format = BSPFormat.IBSP
             numLumps = 19
         else:
             # GoldSrc-era BSP files don't have any ident value, so we assume this is Quake
             # In which case we need to rewind 4 bytes as we've just read the BSP version accidentally 
-            self.stream.rewind(4)
+            data.seek(data.tell()-4)
             numLumps = 15
 
-        version, = struct.unpack("I", self.stream.read(4))
+        version, = struct.unpack("I", data.read(4))
+
+        print(version)
 
         # Version 30 of the old GoldSrc format is Half-Life (AKA: HL)
         if self.format is BSPFormat.GSRC and version is 30:
@@ -68,23 +67,23 @@ class BSP(object):
         # Parse this BSPs lumps
         lumps = []
         for i in range(0, numLumps):
-            lump = struct.unpack("II", self.stream.read(8))
+            lump = struct.unpack("II", data.read(8))
             lumps.append(lump)
 
         if self.format is BSPFormat.GSRC or self.format is BSPFormat.HL:
-            self.textures = self.parseTextures(offset + lumps[2][0])
-            self.vertices = self.parseVertices(offset + lumps[3][0], lumps[3][1])
-            self.texInfos = self.parseTextureInfo(offset + lumps[6][0], lumps[6][1])
-            self.faces = self.parseFaces(offset + lumps[7][0], lumps[7][1])
-            self.edges = self.parseEdges(offset + lumps[12][0], lumps[12][1])
-            self.lEdges = self.parseLEdges(offset + lumps[13][0], lumps[13][1])
+            self.textures = self.parseTextures(lumps[2][0])
+            self.vertices = self.parseVertices(lumps[3][0], lumps[3][1])
+            self.texInfos = self.parseTextureInfo(lumps[6][0], lumps[6][1])
+            self.faces = self.parseFaces(lumps[7][0], lumps[7][1])
+            self.edges = self.parseEdges(lumps[12][0], lumps[12][1])
+            self.lEdges = self.parseLEdges(lumps[13][0], lumps[13][1])
 
         else:
-            self.vertices = self.parseVertices(offset + lumps[2][0], lumps[2][1])
-            self.texInfos = self.parseTextureInfo(offset + lumps[5][0], lumps[5][1])
-            self.faces = self.parseFaces(offset + lumps[6][0], lumps[6][1])
-            self.edges = self.parseEdges(offset + lumps[11][0], lumps[11][1])
-            self.lEdges = self.parseLEdges(offset + lumps[12][0], lumps[12][1])
+            self.vertices = self.parseVertices(lumps[2][0], lumps[2][1])
+            self.texInfos = self.parseTextureInfo(lumps[5][0], lumps[5][1])
+            self.faces = self.parseFaces(lumps[6][0], lumps[6][1])
+            self.edges = self.parseEdges(lumps[11][0], lumps[11][1])
+            self.lEdges = self.parseLEdges(lumps[12][0], lumps[12][1])
 
             self.textures = {}
             for texInfo in self.texInfos:
@@ -92,13 +91,10 @@ class BSP(object):
                     for extension in ["wal", "tga"]:
                         path = "textures/" + texInfo.name + "." + extension
 
-                        pak, entry = self.paks.entryForName(path)
-                        if entry is not None:
-                            offset, size = entry
-                            stream = BinaryStream(pak.stream.binaryFile, offset)
-
+                        data = self.paks.dataForEntry(path)
+                        if data is not None:
                             if extension == "wal":
-                                self.textures[texInfo.name] = TextureLoader.loadWAL(self.format, stream, self.palette)
+                                self.textures[texInfo.name] = TextureLoader.loadWAL(self.format, data, self.palette)
                             else:
                                 self.textures[texInfo.name] = TextureLoader.loadFromPath(path, self.paks)
 
@@ -230,51 +226,51 @@ class BSP(object):
         print("OBJ saved to `%s`"%(outputFileName))
 
     def parseVertices(self, offset, size):
-        self.stream.seek(offset)
+        self.data.seek(offset)
 
         vertices = []
         for i in range(0, size//12):
-            vertex = struct.unpack("fff", self.stream.read(12))
+            vertex = struct.unpack("fff", self.data.read(12))
             vertices.append(Vector3.swizzle(vertex[0], vertex[1], vertex[2]))
 
         return vertices
 
     def parseLEdges(self, offset, size):
-        self.stream.seek(offset)
+        self.data.seek(offset)
 
         edgeList = []
         for i in range(0, size//4):
-            index, = struct.unpack("i", self.stream.read(4))
+            index, = struct.unpack("i", self.data.read(4))
             edgeList.append(index)
 
         return edgeList
 
     def parseEdges(self, offset, size):
-        self.stream.seek(offset)
+        self.data.seek(offset)
 
         edges = []
         for i in range(0, size//4):
-            data = struct.unpack("HH", self.stream.read(4))
+            data = struct.unpack("HH", self.data.read(4))
             edges.append(Edge(data[0], data[1]))
     
         return edges
 
     def parseFaces(self, offset, size):
-        self.stream.seek(offset)
+        self.data.seek(offset)
 
         faces = []
         for i in range(0, size//20):
-            self.stream.advance(4) # skip plane index
+            self.data.read(4) # skip plane index
 
-            data = struct.unpack("ihh", self.stream.read(8))
+            data = struct.unpack("ihh", self.data.read(8))
             faces.append(Face(data[0], data[1], data[2]))
 
-            self.stream.advance(8) # skip lightmap info
+            self.data.read(8) # skip lightmap info
         
         return faces
 
     def parseTextureInfo(self, offset, size):
-        self.stream.seek(offset)
+        self.data.seek(offset)
 
         length = 40
         if self.format is BSPFormat.IBSP:
@@ -289,11 +285,11 @@ class BSP(object):
             # versions of the engine made it possible to store texture data outside of BSP files
             # it became necessary to pack texInfo with texture names for external look-up
             if self.format is BSPFormat.IBSP:
-                data = struct.unpack("ffffffffII32sI", self.stream.read(length))
+                data = struct.unpack("ffffffffII32sI", self.data.read(length))
                 name = c_char_p(data[10]).value
                 name = bytesToString(name)
             else:
-                data = struct.unpack("ffffffffII", self.stream.read(length))
+                data = struct.unpack("ffffffffII", self.data.read(length))
 
             uAxis = Vector3.swizzle(data[0], data[1], data[2])
             uOffset = data[3]
@@ -310,18 +306,18 @@ class BSP(object):
         if self.palette is None:
             raise ValueError("Attempt to parse a texture without an associated palette")
 
-        self.stream.seek(offset)
+        self.data.seek(offset)
 
-        numTextures, = struct.unpack("I", self.stream.read(4))
+        numTextures, = struct.unpack("I", self.data.read(4))
         offsets = []
 
         for i in range (0, numTextures):
-            textureOffset, = struct.unpack("I", self.stream.read(4))
+            textureOffset, = struct.unpack("I", self.data.read(4))
             offsets.append(textureOffset)
 
         textures = []
         for i in range(0, numTextures):
-            textureStream = BinaryStream(self.stream.binaryFile, offset + offsets[i])
-            textures.append(TextureLoader.loadWAL(self.format, textureStream, self.palette))
+            self.data.seek(offset + offsets[i])
+            textures.append(TextureLoader.loadWAL(self.format, self.data, self.palette))
 
         return textures

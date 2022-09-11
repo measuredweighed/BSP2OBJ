@@ -1,4 +1,4 @@
-import io, struct, os
+import io, struct, os, sys
 
 from bsp2obj.constants import * 
 from bsp2obj.helpers import * 
@@ -9,16 +9,17 @@ from ctypes import *
 class TextureLoader(object):
     @staticmethod
     def fromByteBuffer(data):
-        stream = io.BytesIO(data)
-        img = Image.open(stream).convert("RGB")
+        img = Image.open(data).convert("RGB")
         width, height = img.size
         return Texture(list(img.getdata()), width, height, "")
 
     @staticmethod
     def fromLMP(data):
+        buffer = data.getbuffer()
+
         pixels = []
-        for i in range(0, len(data), 3):
-            r, g, b = struct.unpack("BBB", data[i+0:i+3])
+        for i in range(0, len(buffer), 3):
+            r, g, b = struct.unpack("BBB", buffer[i+0:i+3])
             pixels.append((r, g, b))
             
         return Texture(pixels, 0, 0, "")
@@ -27,16 +28,7 @@ class TextureLoader(object):
     def loadFromPath(path, paks):
         data = None
 
-        pak, entry = paks.entryForName(path)
-        if entry is not None:
-            offset, size = entry
-            data = pak.stream.fetch(offset, size)
-        else:
-            with open(path, "rb") as f:
-                stream = BinaryStream(f)
-                size = os.fstat(f.fileno()).st_size
-                data = stream.read(size)
-
+        data = paks.dataForEntry(path)
         if data is None:
             return None
 
@@ -50,8 +42,8 @@ class TextureLoader(object):
             return texture
 
     @staticmethod
-    def loadWAL(format, stream, palette):
-        baseOffset = stream.ptr
+    def loadWAL(format, data, palette):
+        baseOffset = data.tell()
 
         if format is BSPFormat.IBSP:
             byteFormat = "32sIIIIII"
@@ -61,7 +53,7 @@ class TextureLoader(object):
             byteFormat = "16sIIIIII"
 
         # Parse texture header
-        name, width, height, offset1, offset2, offset4, offset8 = struct.unpack(byteFormat, stream.read(byteLength))
+        name, width, height, offset1, offset2, offset4, offset8 = struct.unpack(byteFormat, data.read(byteLength))
         name = c_char_p(name).value # null-terminate string
         name = bytesToString(name)
 
@@ -73,17 +65,17 @@ class TextureLoader(object):
         # so we seek past the last mip texture (and past the 256 2-byte denominator)
         # to grab the RGB values for this texture
         if format is BSPFormat.HL:
-            stream.seek(baseOffset + offset8 + ((width//8) * (height//8)) + 2)
-            palette = TextureLoader.fromLMP(stream.read(256*3))
+            data.seek(baseOffset + offset8 + ((width//8) * (height//8)) + 2)
+            palette = TextureLoader.fromLMP(io.BytesIO(data.read(256*3)))
 
         # Skip to the correct byte offset for mip level 1
-        stream.seek(baseOffset + offset1)
+        data.seek(baseOffset + offset1)
 
         # Grab the raw pixel data
         numPixels = width * height
         pixels = []
         for p in range(0, numPixels):
-            index, = struct.unpack("B", stream.read(1))
+            index, = struct.unpack("B", data.read(1))
             if index >= len(palette.pixels):
                 raise KeyError("Color index %i larger than palette size of %i"%(index, len(palette.pixels)))
                 

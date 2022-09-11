@@ -3,57 +3,8 @@ import math, struct
 """ Converts a byte string representation to a string type (where appropriate) """
 def bytesToString(bytes, encoding="ascii"):
     if type(bytes) == type(b""):
-        bytes = bytes.decode(encoding)
+        bytes = bytes.decode(encoding, errors="ignore")
     return bytes
-
-""" A barebones class to help with seeking and fetching from a binary source """
-class BinaryStream(object):
-    ptr = 0
-    binaryFile = None
-
-    def __init__(self, binaryFile, ptr=0):
-        self.binaryFile = binaryFile
-        self.seek(ptr)
-
-    def close(self):
-        self.binaryFile.close()
-
-    def seek(self, ptr):
-        self.binaryFile.seek(ptr)
-        self.ptr = ptr
-
-    def advance(self, length):
-        self.seek(self.ptr+length)
-
-    def rewind(self, length):
-        self.advance(-length)
-
-    def read(self, length):
-        value = self.binaryFile.read(length)
-        self.advance(length)
-        return value
-
-    def fetch(self, offset, length):
-        prevOffset = self.ptr
-        self.seek(offset)
-        value = self.read(length)
-        self.seek(prevOffset)
-        return value
-
-    def int(self, length):
-        data = self.binaryFile.read(length)
-        value, = struct.unpack("i", data)
-        self.advance(length)
-        return value
-
-    def str(self, length, encoding=None):
-        # default to ASCII encoding but make it possible to specify others
-        if encoding is None:
-            encoding = "ascii"
-
-        value = self.binaryFile.read(length).decode(encoding)
-        self.advance(length)
-        return value
 
 """ A barebones Vector3 implementation """
 class Vector3(object):
