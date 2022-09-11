@@ -24,14 +24,12 @@ class TextureLoader(object):
         return Texture(pixels, 0, 0, "")
 
     @staticmethod
-    def loadFromPath(path, pak=None):
+    def loadFromPath(path, paks):
         data = None
 
-        if pak is not None:
-            if path not in pak.directory:
-                return None
-
-            offset, size = pak.directory[path]
+        pak, entry = paks.entryForName(path)
+        if entry is not None:
+            offset, size = entry
             data = pak.stream.fetch(offset, size)
         else:
             with open(path, "rb") as f:

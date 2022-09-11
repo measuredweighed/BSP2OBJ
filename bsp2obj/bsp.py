@@ -35,9 +35,9 @@ class TextureGroup(object):
         self.normalIndices = normalIndices
 
 class BSP(object):
-    def __init__(self, stream, pak, palettePath):
+    def __init__(self, stream, paks, palettePath):
         self.stream = stream
-        self.pak = pak
+        self.paks = paks
         self.format = BSPFormat.GSRC
 
         # Store a base byte offset to the start of the BSP file
@@ -61,7 +61,7 @@ class BSP(object):
         if self.format is BSPFormat.GSRC and version is 30:
             self.format = BSPFormat.HL
 
-        self.palette = TextureLoader.loadFromPath(palettePath, pak)
+        self.palette = TextureLoader.loadFromPath(palettePath, paks)
         if self.palette is None:
             raise KeyError("Unable to find palette file `%s` in PAK file"%(palettePath))
 
@@ -92,16 +92,15 @@ class BSP(object):
                     for extension in ["wal", "tga"]:
                         path = "textures/" + texInfo.name + "." + extension
 
-                        if (self.pak is not None) and (path in self.pak.directory):
-
-                            offset = self.pak.directory[path][0]
-                            size = self.pak.directory[path][1]
-                            stream = BinaryStream(self.stream.binaryFile, offset)
+                        pak, entry = self.paks.entryForName(path)
+                        if entry is not None:
+                            offset, size = entry
+                            stream = BinaryStream(pak.stream.binaryFile, offset)
 
                             if extension == "wal":
                                 self.textures[texInfo.name] = TextureLoader.loadWAL(self.format, stream, self.palette)
                             else:
-                                self.textures[texInfo.name] = TextureLoader.loadFromPath(path, pak)
+                                self.textures[texInfo.name] = TextureLoader.loadFromPath(path, self.paks)
 
     def saveOBJ(self, outputFileName):
         faceIndices = []

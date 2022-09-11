@@ -15,6 +15,9 @@ class BinaryStream(object):
         self.binaryFile = binaryFile
         self.seek(ptr)
 
+    def close(self):
+        self.binaryFile.close()
+
     def seek(self, ptr):
         self.binaryFile.seek(ptr)
         self.ptr = ptr
