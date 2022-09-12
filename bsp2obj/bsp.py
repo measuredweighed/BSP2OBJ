@@ -35,16 +35,16 @@ class TextureGroup(object):
         self.normalIndices = normalIndices
 
 class BSP(object):
-    def __init__(self, data, paks, palettePath):
+    def __init__(self, data, paks, palettePath, game):
         self.data = data
         self.paks = paks
-        self.format = BSPFormat.GSRC
+        self.game = game
 
         numLumps = 0
 
         identStr, = struct.unpack("4s", data.read(4))
-        if bytesToString(identStr) == "IBSP":
-            self.format = BSPFormat.IBSP
+
+        if game is Game.Q2 or game is Game.KINGPIN or game is Game.DAIKATANA:
             numLumps = 19
         else:
             # GoldSrc-era BSP files don't have any ident value, so we assume this is Quake
@@ -56,10 +56,6 @@ class BSP(object):
 
         print(version)
 
-        # Version 30 of the old GoldSrc format is Half-Life (AKA: HL)
-        if self.format is BSPFormat.GSRC and version is 30:
-            self.format = BSPFormat.HL
-
         self.palette = TextureLoader.loadFromPath(palettePath, paks)
         if self.palette is None:
             raise KeyError("Unable to find palette file `%s` in PAK file"%(palettePath))
@@ -70,14 +66,13 @@ class BSP(object):
             lump = struct.unpack("II", data.read(8))
             lumps.append(lump)
 
-        if self.format is BSPFormat.GSRC or self.format is BSPFormat.HL:
+        if game is Game.Q1 or game is Game.HL1:
             self.textures = self.parseTextures(lumps[2][0])
             self.vertices = self.parseVertices(lumps[3][0], lumps[3][1])
             self.texInfos = self.parseTextureInfo(lumps[6][0], lumps[6][1])
             self.faces = self.parseFaces(lumps[7][0], lumps[7][1])
             self.edges = self.parseEdges(lumps[12][0], lumps[12][1])
             self.lEdges = self.parseLEdges(lumps[13][0], lumps[13][1])
-
         else:
             self.vertices = self.parseVertices(lumps[2][0], lumps[2][1])
             self.texInfos = self.parseTextureInfo(lumps[5][0], lumps[5][1])
@@ -94,7 +89,7 @@ class BSP(object):
                         data = self.paks.dataForEntry(path)
                         if data is not None:
                             if extension == "wal":
-                                self.textures[texInfo.name] = TextureLoader.loadWAL(self.format, data, self.palette)
+                                self.textures[texInfo.name] = TextureLoader.loadWAL(self.game, data, self.palette)
                             else:
                                 self.textures[texInfo.name] = TextureLoader.loadFromPath(path, self.paks)
 
@@ -215,7 +210,7 @@ class BSP(object):
             mtlFile.close()
 
         # We treat the texture list a little differently for GoldSrc versus later BSP versions.
-        if self.format is not BSPFormat.IBSP:
+        if self.game is not Game.Q2 and self.game is not Game.KINGPIN and self.game is not Game.DAIKATANA:
             for texture in self.textures:
                 texture.save(outputFileName + "/" + texture.name + ".png")
         else:
@@ -273,7 +268,7 @@ class BSP(object):
         self.data.seek(offset)
 
         length = 40
-        if self.format is BSPFormat.IBSP:
+        if self.game is Game.Q2 or self.game is Game.KINGPIN or self.game is Game.DAIKATANA:
             length = 76
 
         texInfos = []
@@ -284,7 +279,7 @@ class BSP(object):
             # because all textures were contained within the BSP file itself. When future
             # versions of the engine made it possible to store texture data outside of BSP files
             # it became necessary to pack texInfo with texture names for external look-up
-            if self.format is BSPFormat.IBSP:
+            if self.game is Game.Q2 or self.game is Game.KINGPIN or self.game is Game.DAIKATANA:
                 data = struct.unpack("ffffffffII32sI", self.data.read(length))
                 name = c_char_p(data[10]).value
                 name = bytesToString(name)
@@ -318,6 +313,6 @@ class BSP(object):
         textures = []
         for i in range(0, numTextures):
             self.data.seek(offset + offsets[i])
-            textures.append(TextureLoader.loadWAL(self.format, self.data, self.palette))
+            textures.append(TextureLoader.loadWAL(self.game, self.data, self.palette))
 
         return textures

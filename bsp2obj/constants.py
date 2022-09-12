@@ -1,6 +1,9 @@
 from enum import Enum
 
-class BSPFormat(Enum):
-    GSRC = 1 # Quake
-    IBSP = 2 # Quake 2 (also used for Quake 3, but that's unsupported right now)
-    HL = 3 # Half-Life
+class Game(Enum):
+    Q1 = 1
+    Q2 = 2
+    HL1 = 3
+    DAIKATANA = 4
+    HEXEN2 = 5
+    KINGPIN = 6

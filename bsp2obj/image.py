@@ -42,20 +42,35 @@ class TextureLoader(object):
             return texture
 
     @staticmethod
-    def loadWAL(format, data, palette):
+    def loadWAL(game, data, palette):
         baseOffset = data.tell()
 
-        if format is BSPFormat.IBSP:
+        name = None
+        offset1 = 0
+
+        if game is Game.Q2:
             byteFormat = "32sIIIIII"
             byteLength = 56
+
+            name, width, height, offset1, offset2, offset4, offset8 = struct.unpack(byteFormat, data.read(byteLength))
+            name = c_char_p(name).value # null-terminate string
+            name = bytesToString(name)
+        elif game is Game.DAIKATANA:
+            byteFormat = "c32s3sIIIIIIIIIII32sII768sI"
+            byteLength = 892
+
+            version, name, padding, width, height, offset1, offset2, offset3, offset4, offset5, offset6, offset7, offset8, offset9, animName, flags, contents, palette, value = struct.unpack(byteFormat, data.read(byteLength))
+            
+            name = c_char_p(name).value # null-terminate string
+            name = bytesToString(name)
+            palette = TextureLoader.fromLMP(io.BytesIO(palette))
         else:
             byteLength = 40
             byteFormat = "16sIIIIII"
-
-        # Parse texture header
-        name, width, height, offset1, offset2, offset4, offset8 = struct.unpack(byteFormat, data.read(byteLength))
-        name = c_char_p(name).value # null-terminate string
-        name = bytesToString(name)
+            
+            name, width, height, offset1, offset2, offset4, offset8 = struct.unpack(byteFormat, data.read(byteLength))
+            name = c_char_p(name).value # null-terminate string
+            name = bytesToString(name)
 
         # TODO: Apparently in Half-Life 1 the mip texture offsets can be 0
         # to denote that this texture should be loaded from an external WAD
@@ -64,7 +79,7 @@ class TextureLoader(object):
         # Half-Life 1 stored custom palette information for each mip texture,
         # so we seek past the last mip texture (and past the 256 2-byte denominator)
         # to grab the RGB values for this texture
-        if format is BSPFormat.HL:
+        if game is Game.HL1:
             data.seek(baseOffset + offset8 + ((width//8) * (height//8)) + 2)
             palette = TextureLoader.fromLMP(io.BytesIO(data.read(256*3)))
 
