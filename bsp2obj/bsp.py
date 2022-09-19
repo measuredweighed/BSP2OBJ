@@ -13,9 +13,9 @@ class Edge(object):
         self.vert2 = vert2
 
 class Face(object):
-    def __init__(self, lEdgeIndex, numLEdges, texInfoID):
-        self.lEdgeIndex = lEdgeIndex
-        self.numLEdges = numLEdges
+    def __init__(self, firstEdgeIndex, numEdges, texInfoID):
+        self.firstEdgeIndex = firstEdgeIndex
+        self.numEdges = numEdges
         self.texInfoID = texInfoID
 
 class TextureInfo(object):
@@ -123,14 +123,14 @@ class BSP(object):
                 textureGroups[texture.name] = TextureGroup([], [], [])
 
             vertexIndices = []
-            e = face.lEdgeIndex
+            e = face.firstEdgeIndex
             uvOffset = len(uvs)
 
             # Since we've already got a master list of vertices we need to iterate over our
             # edge list and generate vertex indices. We'll also generate UV coordinates for
             # each vertex as we go...
-            for i in range(0, face.numLEdges):
-                if(self.lEdges[face.lEdgeIndex + i] < 0):
+            for i in range(0, face.numEdges):
+                if(self.lEdges[face.firstEdgeIndex + i] < 0):
                     vertexIndices.append(self.edges[abs(self.lEdges[e])].vert1)
                 else:
                     vertexIndices.append(self.edges[self.lEdges[e]].vert2)
