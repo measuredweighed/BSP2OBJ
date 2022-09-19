@@ -6,7 +6,7 @@ import os, getopt, sys, traceback
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "g:o:p:m:c:d:e:")
+        opts, args = getopt.getopt(sys.argv[1:], "g:o:p:m:c:l:e:")
 
         pakPaths = []
         palettePath = None
@@ -26,7 +26,7 @@ def main():
                 palettePath = arg
             elif opt in "-o":
                 outputPath = arg
-            elif opt in "-d":
+            elif opt in "-l":
                 pakDumpPattern = arg
             elif opt in "-e":
                 pakExportPattern = arg
@@ -89,5 +89,7 @@ def gameFromStr(str):
         return Game.HEXEN2
     elif str == "kingpin":
         return Game.KINGPIN
+    elif str == "sof":
+        return Game.SOF
     else:
         return None
