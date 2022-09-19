@@ -6,13 +6,14 @@ import os, getopt, sys, traceback
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "g:o:p:m:c:d:")
+        opts, args = getopt.getopt(sys.argv[1:], "g:o:p:m:c:d:e:")
 
         pakPaths = []
         palettePath = None
         bspPath = None
         outputPath = "output"
         pakDumpPattern = None
+        pakExportPattern = None
 
         game = None
 
@@ -27,6 +28,8 @@ def main():
                 outputPath = arg
             elif opt in "-d":
                 pakDumpPattern = arg
+            elif opt in "-e":
+                pakExportPattern = arg
             elif opt in "-g":
                 game = gameFromStr(arg)
 
@@ -37,6 +40,10 @@ def main():
 
         if pakDumpPattern is not None:
             paks.dumpContents(pakDumpPattern)
+            os._exit(1)
+
+        if pakExportPattern is not None:
+            paks.exportContents(pakExportPattern)
             os._exit(1)
 
         if bspPath is None:

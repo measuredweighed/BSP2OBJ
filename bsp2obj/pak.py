@@ -72,6 +72,10 @@ class PAKCollection(object):
         for pak in self.list:
             pak.dumpContents(pattern)
 
+    def exportContents(self, pattern):
+        for pak in self.list:
+            pak.exportContents(pattern)
+
     def entryForName(self, name):
         for pak in self.list:
             if name in pak.directory:
@@ -123,4 +127,16 @@ class PAK(object):
         for filename in self.directory:
             if pattern is "*" or re.search(pattern, filename):
                 print(filename)
+
+    def exportContents(self, pattern):
+        print("Exporting PAK contents matching `%s`"%(pattern))
+        for filename in self.directory:
+            if pattern is "*" or re.search(pattern, filename):
+                index = self.directory[filename]
+                buffer = self.data.getbuffer()
+
+                createFolderStructure(filename)
+                with open(filename, "wb") as output:
+                    output.write(buffer[index.offset:(index.offset + index.size)])
+                
 

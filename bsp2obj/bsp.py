@@ -153,14 +153,7 @@ class BSP(object):
                 textureGroups[texture.name].normalIndices.append(len(normals))
 
         # Generate any required folders for the output path
-        folderPath = os.path.dirname(outputFileName)
-        outputPath = ""
-        if len(folderPath) > 0:
-            outputPath = folderPath + "/"
-            if not os.path.exists(folderPath):
-                os.makedirs(folderPath)
-
-        outputPath += outputFileName
+        outputPath = createFolderStructure(outputFileName) + outputFileName
 
         # Generate an OBJ file for this map
         with open(outputPath + ".obj", "w") as outputFile:

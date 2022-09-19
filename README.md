@@ -35,13 +35,15 @@ Here's how I went about extracting the first level of Half-Life from my Steam li
 bsp2obj -g hl1 -o hl_c1a0 -m /Users/measuredweighed/Library/Application\ Support/Steam/steamapps/common/Half-Life/valve/maps/c1a0.bsp -c /Users/measuredweighed/Library/Application\ Support/Steam/steamapps/common/Half-Life/valve/gfx/palette.lmp
 ```
 
-### Dumping PAK contents
-You may provide the optional argument `-d` to dump a list of any filenames contained within a PAK file that match a given regular expression. As an example, one could dump all of the `.bsp` files in a PAK file like so:
+### Exporting or listing PAK contents
+You may provide the optional argument `-e` to export files contained within a PAK file that match a given regular expression. As an example, one could dump all of the `.bsp` files in a PAK file like so:
 ```
-bsp2obj -g q2 -p Q2.PAK -d ".bsp"
+bsp2obj -g q2 -p Q2.PAK -e ".bsp"
 ```
 
-Alternatively, if you provide a pattern of `*` every file will be returned:
+Alternatively, if you provide a pattern of `*` every file will be exported:
 ```
-bsp2obj -g q2 -p Q2.PAK -d "*"
+bsp2obj -g q2 -p Q2.PAK -e "*"
 ```
+
+If you'd prefer to list files within a PAK, swap the `-e` flag for `-l`

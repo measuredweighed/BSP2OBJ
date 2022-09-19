@@ -1,10 +1,20 @@
-import math, struct
+import math, struct, os
 
 """ Converts a byte string representation to a string type (where appropriate) """
 def bytesToString(bytes, encoding="ascii"):
     if type(bytes) == type(b""):
         bytes = bytes.decode(encoding, errors="ignore")
     return bytes
+
+def createFolderStructure(path):
+    folderPath = os.path.dirname(path)
+    outputPath = ""
+    if len(folderPath) > 0:
+        outputPath = folderPath + "/"
+        if not os.path.exists(folderPath):
+            os.makedirs(folderPath)
+            
+    return outputPath
 
 """ A barebones Vector3 implementation """
 class Vector3(object):
