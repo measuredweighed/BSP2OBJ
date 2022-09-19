@@ -34,6 +34,14 @@ class TextureGroup(object):
         self.uvIndices = uvIndices
         self.normalIndices = normalIndices
 
+class LumpHeader(object):
+    def __init__(self, offset, length):
+        self.offset = offset
+        self.length = length
+
+    def __repr__(self):
+        return "LumpHeader (offset: {}, length: {})".format(self.offset, self.length)
+
 class BSP(object):
     def __init__(self, data, paks, palettePath, game):
         self.data = data
@@ -54,7 +62,7 @@ class BSP(object):
 
         version, = struct.unpack("I", data.read(4))
 
-        print(version)
+        print("BSP version {}".format(version))
 
         self.palette = TextureLoader.loadFromPath(palettePath, paks)
         if self.palette is None:
@@ -63,22 +71,23 @@ class BSP(object):
         # Parse this BSPs lumps
         lumps = []
         for i in range(0, numLumps):
-            lump = struct.unpack("II", data.read(8))
-            lumps.append(lump)
+            header = LumpHeader(0, 0)
+            header.offset, header.length = struct.unpack("II", data.read(8))
+            lumps.append(header)
 
         if game is Game.Q1 or game is Game.HL1:
-            self.textures = self.parseTextures(lumps[2][0])
-            self.vertices = self.parseVertices(lumps[3][0], lumps[3][1])
-            self.texInfos = self.parseTextureInfo(lumps[6][0], lumps[6][1])
-            self.faces = self.parseFaces(lumps[7][0], lumps[7][1])
-            self.edges = self.parseEdges(lumps[12][0], lumps[12][1])
-            self.lEdges = self.parseLEdges(lumps[13][0], lumps[13][1])
+            self.textures = self.parseTextures(lumps[2])
+            self.vertices = self.parseVertices(lumps[3])
+            self.texInfos = self.parseTextureInfo(lumps[6])
+            self.faces = self.parseFaces(lumps[7])
+            self.edges = self.parseEdges(lumps[12])
+            self.lEdges = self.parseLEdges(lumps[13])
         else:
-            self.vertices = self.parseVertices(lumps[2][0], lumps[2][1])
-            self.texInfos = self.parseTextureInfo(lumps[5][0], lumps[5][1])
-            self.faces = self.parseFaces(lumps[6][0], lumps[6][1])
-            self.edges = self.parseEdges(lumps[11][0], lumps[11][1])
-            self.lEdges = self.parseLEdges(lumps[12][0], lumps[12][1])
+            self.vertices = self.parseVertices(lumps[2])
+            self.texInfos = self.parseTextureInfo(lumps[5])
+            self.faces = self.parseFaces(lumps[6])
+            self.edges = self.parseEdges(lumps[11])
+            self.lEdges = self.parseLEdges(lumps[12])
 
             self.textures = {}
             for texInfo in self.texInfos:
@@ -213,41 +222,41 @@ class BSP(object):
 
         print("OBJ saved to `%s`"%(outputFileName))
 
-    def parseVertices(self, offset, size):
-        self.data.seek(offset)
+    def parseVertices(self, lump):
+        self.data.seek(lump.offset)
 
         vertices = []
-        for i in range(0, size//12):
+        for i in range(0, lump.length//12):
             vertex = struct.unpack("fff", self.data.read(12))
             vertices.append(Vector3.swizzle(vertex[0], vertex[1], vertex[2]))
 
         return vertices
 
-    def parseLEdges(self, offset, size):
-        self.data.seek(offset)
+    def parseLEdges(self, lump):
+        self.data.seek(lump.offset)
 
         edgeList = []
-        for i in range(0, size//4):
+        for i in range(0, lump.length//4):
             index, = struct.unpack("i", self.data.read(4))
             edgeList.append(index)
 
         return edgeList
 
-    def parseEdges(self, offset, size):
-        self.data.seek(offset)
+    def parseEdges(self, lump):
+        self.data.seek(lump.offset)
 
         edges = []
-        for i in range(0, size//4):
+        for i in range(0, lump.length//4):
             data = struct.unpack("HH", self.data.read(4))
             edges.append(Edge(data[0], data[1]))
     
         return edges
 
-    def parseFaces(self, offset, size):
-        self.data.seek(offset)
+    def parseFaces(self, lump):
+        self.data.seek(lump.offset)
 
         faces = []
-        for i in range(0, size//20):
+        for i in range(0, lump.length//20):
             self.data.read(4) # skip plane index
 
             data = struct.unpack("ihh", self.data.read(8))
@@ -257,15 +266,15 @@ class BSP(object):
         
         return faces
 
-    def parseTextureInfo(self, offset, size):
-        self.data.seek(offset)
+    def parseTextureInfo(self, lump):
+        self.data.seek(lump.offset)
 
         length = 40
         if self.game is Game.Q2 or self.game is Game.KINGPIN or self.game is Game.DAIKATANA:
             length = 76
 
         texInfos = []
-        for i in range(0, size//length):
+        for i in range(0, lump.length//length):
             name = None
 
             # GoldSrc BSP files didn't contain texture names as part of the texInfo lump
@@ -290,11 +299,11 @@ class BSP(object):
 
         return texInfos
 
-    def parseTextures(self, offset):
+    def parseTextures(self, lump):
         if self.palette is None:
             raise ValueError("Attempt to parse a texture without an associated palette")
 
-        self.data.seek(offset)
+        self.data.seek(lump.offset)
 
         numTextures, = struct.unpack("I", self.data.read(4))
         offsets = []
@@ -305,7 +314,7 @@ class BSP(object):
 
         textures = []
         for i in range(0, numTextures):
-            self.data.seek(offset + offsets[i])
+            self.data.seek(lump.offset + offsets[i])
             textures.append(TextureLoader.loadWAL(self.game, self.data, self.palette))
 
         return textures
